@@ -1,0 +1,25 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "spfx-ticketing-ui",
+    "id": "a0e9f5a9-1b84-4d5e-a9e7-92f3b7fcb5c3",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "features": [
+      {
+        "title": "SPFx Ticketing UI",
+        "description": "Ticketing UI layer for SharePoint Online.",
+        "id": "8a9a5f64-4c24-4cf8-9e75-ea21d3f36c1f",
+        "version": "1.0.0.0",
+        "assets": {
+          "elementManifests": [
+            "elements.xml"
+          ]
+        }
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/spfx-ticketing-ui.sppkg"
+  }
+}

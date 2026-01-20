@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/copy-assets.schema.json",
+  "assets": {
+    "include": [
+      "./src/**/*.manifest.json",
+      "./src/**/*.json",
+      "./src/**/*.png",
+      "./src/**/*.svg"
+    ]
+  }
+}

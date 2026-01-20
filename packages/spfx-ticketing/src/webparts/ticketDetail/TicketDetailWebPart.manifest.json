@@ -1,0 +1,27 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "7b3d7c64-4b6b-4d7e-a8d6-4a1be8f34b28",
+  "alias": "TicketDetailWebPart",
+  "componentType": "WebPart",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "preconfiguredEntries": [
+    {
+      "title": { "default": "Ticket-Detail" },
+      "description": { "default": "Ticket bearbeiten und antworten" },
+      "officeFabricIconFontName": "Message",
+      "properties": {
+        "ticketsListTitle": "Tickets",
+        "timelineListTitle": "TicketTimeline",
+        "templatesListTitle": "ReplyTemplates",
+        "logsListTitle": "AppLogs",
+        "sharedMailbox": "support@company.tld",
+        "ticketIdPrefix": "CS-2026-",
+        "defaultStatuses": ["Neu", "In Bearbeitung", "Wartet auf Kunde", "Wartet auf Außendienst", "Erledigt"],
+        "enableAppLogging": false,
+        "emailSendingMode": "GraphSendMail",
+        "powerAutomateEndpoint": ""
+      }
+    }
+  ]
+}

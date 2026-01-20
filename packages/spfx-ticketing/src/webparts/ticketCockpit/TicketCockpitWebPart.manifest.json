@@ -1,0 +1,27 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "ce3d31e5-0df6-41e0-ae57-3f8f78143c2c",
+  "alias": "TicketCockpitWebPart",
+  "componentType": "WebPart",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "preconfiguredEntries": [
+    {
+      "title": { "default": "Ticket-Cockpit" },
+      "description": { "default": "Übersicht über Tickets" },
+      "officeFabricIconFontName": "Ticket",
+      "properties": {
+        "ticketsListTitle": "Tickets",
+        "timelineListTitle": "TicketTimeline",
+        "templatesListTitle": "ReplyTemplates",
+        "logsListTitle": "AppLogs",
+        "sharedMailbox": "support@company.tld",
+        "ticketIdPrefix": "CS-2026-",
+        "defaultStatuses": ["Neu", "In Bearbeitung", "Wartet auf Kunde", "Wartet auf Außendienst", "Erledigt"],
+        "enableAppLogging": false,
+        "emailSendingMode": "GraphSendMail",
+        "powerAutomateEndpoint": ""
+      }
+    }
+  ]
+}
