@@ -1,0 +1,34 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "ticket-cockpit-web-part": {
+      "components": [
+        {
+          "entrypoint": "lib/webparts/ticketCockpit/TicketCockpitWebPart.js",
+          "manifest": "src/webparts/ticketCockpit/TicketCockpitWebPart.manifest.json"
+        }
+      ]
+    },
+    "ticket-detail-web-part": {
+      "components": [
+        {
+          "entrypoint": "lib/webparts/ticketDetail/TicketDetailWebPart.js",
+          "manifest": "src/webparts/ticketDetail/TicketDetailWebPart.manifest.json"
+        }
+      ]
+    },
+    "ticket-setup-web-part": {
+      "components": [
+        {
+          "entrypoint": "lib/webparts/ticketSetup/TicketSetupWebPart.js",
+          "manifest": "src/webparts/ticketSetup/TicketSetupWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "TicketingStrings": "lib/loc/{locale}.js"
+  }
+}

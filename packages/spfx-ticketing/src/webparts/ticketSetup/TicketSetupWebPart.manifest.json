@@ -1,0 +1,27 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "5b2e5b79-3fb9-42a6-9d0f-31320b174f55",
+  "alias": "TicketSetupWebPart",
+  "componentType": "WebPart",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "preconfiguredEntries": [
+    {
+      "title": { "default": "Ticket-Setup" },
+      "description": { "default": "Konfiguration und Health Check" },
+      "officeFabricIconFontName": "Settings",
+      "properties": {
+        "ticketsListTitle": "Tickets",
+        "timelineListTitle": "TicketTimeline",
+        "templatesListTitle": "ReplyTemplates",
+        "logsListTitle": "AppLogs",
+        "sharedMailbox": "support@company.tld",
+        "ticketIdPrefix": "CS-2026-",
+        "defaultStatuses": ["Neu", "In Bearbeitung", "Wartet auf Kunde", "Wartet auf Außendienst", "Erledigt"],
+        "enableAppLogging": false,
+        "emailSendingMode": "GraphSendMail",
+        "powerAutomateEndpoint": ""
+      }
+    }
+  ]
+}
