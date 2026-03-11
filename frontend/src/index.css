@@ -1,0 +1,221 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ─── Base palette ─── */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    /* ─── Sidebar ─── */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* ─── Status colors (Light) ─── */
+    --status-idea: 215 16% 57%;          /* slate */
+    --status-review: 217 91% 60%;        /* blue */
+    --status-pilot: 239 84% 67%;         /* indigo */
+    --status-implementation: 38 92% 50%; /* amber */
+    --status-live: 142 71% 45%;          /* green */
+    --status-stopped: 0 84% 60%;         /* red */
+
+    /* ─── Status background tints (Light) ─── */
+    --status-idea-bg: 215 16% 95%;
+    --status-review-bg: 217 91% 95%;
+    --status-pilot-bg: 239 84% 95%;
+    --status-implementation-bg: 38 92% 95%;
+    --status-live-bg: 142 71% 95%;
+    --status-stopped-bg: 0 84% 95%;
+
+    /* ─── Priority / semantic colors (Light) ─── */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    /* ─── Base palette (Dark) ─── */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+
+    /* ─── Sidebar (Dark) ─── */
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* ─── Status colors (Dark) ─── */
+    --status-idea: 215 16% 65%;
+    --status-review: 217 91% 68%;
+    --status-pilot: 239 84% 74%;
+    --status-implementation: 38 92% 58%;
+    --status-live: 142 71% 55%;
+    --status-stopped: 0 84% 65%;
+
+    /* ─── Status background tints (Dark) ─── */
+    --status-idea-bg: 215 16% 15%;
+    --status-review-bg: 217 91% 15%;
+    --status-pilot-bg: 239 84% 15%;
+    --status-implementation-bg: 38 92% 15%;
+    --status-live-bg: 142 71% 15%;
+    --status-stopped-bg: 0 84% 15%;
+
+    /* ─── Priority / semantic colors (Dark) ─── */
+    --success: 142 71% 55%;
+    --success-foreground: 0 0% 100%;
+    --info: 217 91% 68%;
+    --info-foreground: 0 0% 100%;
+    --warning: 38 92% 58%;
+    --warning-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* ─── Card styles ─── */
+@layer components {
+  .card-elevated {
+    @apply rounded-lg border bg-card text-card-foreground;
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.04),
+      0 1px 2px -1px rgb(0 0 0 / 0.04);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .card-elevated:hover {
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.07),
+      0 2px 4px -2px rgb(0 0 0 / 0.05);
+    transform: translateY(-1px);
+  }
+
+  .card-interactive {
+    @apply card-elevated cursor-pointer;
+  }
+
+  .card-interactive:hover {
+    @apply border-primary/20;
+    box-shadow:
+      0 10px 15px -3px rgb(0 0 0 / 0.06),
+      0 4px 6px -4px rgb(0 0 0 / 0.04);
+    transform: translateY(-2px);
+  }
+
+  .card-interactive:active {
+    transform: translateY(0);
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.04),
+      0 1px 2px -1px rgb(0 0 0 / 0.04);
+  }
+
+  /* ─── Status badges ─── */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    transition: opacity 0.15s ease;
+  }
+
+  .status-idea {
+    background: hsl(var(--status-idea-bg));
+    color: hsl(var(--status-idea));
+  }
+
+  .status-review {
+    background: hsl(var(--status-review-bg));
+    color: hsl(var(--status-review));
+  }
+
+  .status-pilot {
+    background: hsl(var(--status-pilot-bg));
+    color: hsl(var(--status-pilot));
+  }
+
+  .status-implementation {
+    background: hsl(var(--status-implementation-bg));
+    color: hsl(var(--status-implementation));
+  }
+
+  .status-live {
+    background: hsl(var(--status-live-bg));
+    color: hsl(var(--status-live));
+  }
+
+  .status-stopped {
+    background: hsl(var(--status-stopped-bg));
+    color: hsl(var(--status-stopped));
+  }
+}
