@@ -1,0 +1,515 @@
+{
+  "name": "Google Drive AI Organizer",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Start (Manuell)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "list",
+        "filter": {
+          "whatToSearch": "all"
+        },
+        "options": {
+          "fields": "id, name, mimeType, size, modifiedTime, parents, md5Checksum, trashed",
+          "spaces": "drive"
+        },
+        "returnAll": true
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Drive: Alle Dateien listen",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [220, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive (Mein Account)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Alle Dateien und Ordner aus Drive aufbereiten\nconst items = $input.all();\n\nconst files = [];\nconst folders = [];\nconst md5Map = {};\nconst duplicates = [];\n\nfor (const item of items) {\n  const f = item.json;\n  \n  // Überspringe gelöschte Elemente\n  if (f.trashed) continue;\n  \n  const entry = {\n    id: f.id,\n    name: f.name,\n    mimeType: f.mimeType || 'unknown',\n    size: f.size || 0,\n    modifiedTime: f.modifiedTime,\n    parents: f.parents || [],\n    md5: f.md5Checksum || null,\n    isFolder: f.mimeType === 'application/vnd.google-apps.folder',\n    isGoogleDoc: f.mimeType?.startsWith('application/vnd.google-apps.') && f.mimeType !== 'application/vnd.google-apps.folder',\n    extension: f.name?.split('.').pop()?.toLowerCase() || '',\n    category: null\n  };\n  \n  if (entry.isFolder) {\n    folders.push(entry);\n  } else {\n    // Duplikate per MD5 erkennen\n    if (entry.md5) {\n      if (md5Map[entry.md5]) {\n        md5Map[entry.md5].push(entry.id);\n        duplicates.push({ ids: md5Map[entry.md5], name: entry.name, md5: entry.md5 });\n      } else {\n        md5Map[entry.md5] = [entry.id];\n      }\n    }\n    files.push(entry);\n  }\n}\n\nconsole.log(`Gefunden: ${files.length} Dateien, ${folders.length} Ordner, ${duplicates.length} mögliche Duplikat-Gruppen`);\n\nreturn [\n  {\n    json: {\n      files,\n      folders,\n      duplicates,\n      summary: {\n        totalFiles: files.length,\n        totalFolders: folders.length,\n        duplicateGroups: duplicates.length\n      }\n    }\n  }\n];"
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Code: Dateien aufbereiten & Duplikate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dateiliste in Batches für AI aufteilen (max 80 Dateien pro AI-Anfrage)\nconst data = $input.first().json;\nconst files = data.files;\nconst BATCH_SIZE = 80;\nconst batches = [];\n\nfor (let i = 0; i < files.length; i += BATCH_SIZE) {\n  batches.push({\n    json: {\n      batchIndex: Math.floor(i / BATCH_SIZE),\n      totalBatches: Math.ceil(files.length / BATCH_SIZE),\n      files: files.slice(i, i + BATCH_SIZE),\n      allFolders: data.folders,\n      duplicates: data.duplicates,\n      summary: data.summary\n    }\n  });\n}\n\nif (batches.length === 0) {\n  batches.push({ json: { batchIndex: 0, totalBatches: 1, files: [], allFolders: data.folders, duplicates: data.duplicates, summary: data.summary } });\n}\n\nreturn batches;"
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Code: In Batches aufteilen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "complete",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Du bist ein professioneller Datei-Organizer. Deine Aufgabe ist es, Google Drive Dateien zu analysieren und Kategorien zuzuweisen. Antworte NUR mit validem JSON, keine Erklärungen außerhalb von JSON."
+            },
+            {
+              "role": "user",
+              "content": "=Analysiere diese Dateien (Batch {{ $json.batchIndex + 1 }} von {{ $json.totalBatches }}) und weise jeder Datei eine Kategorie und einen vorgeschlagenen Pfad zu.\n\nDateiliste:\n{{ JSON.stringify($json.files.map(f => ({ id: f.id, name: f.name, type: f.mimeType, size: f.size, modified: f.modifiedTime })), null, 2) }}\n\nBekannte Duplikate: {{ JSON.stringify($json.duplicates, null, 2) }}\n\nBestehende Ordner: {{ JSON.stringify($json.allFolders.map(f => f.name), null, 2) }}\n\nAntworte mit diesem exakten JSON-Format:\n{\n  \"categories\": [\n    {\n      \"fileId\": \"DATEI_ID\",\n      \"fileName\": \"DATEINAME\",\n      \"category\": \"HAUPTKATEGORIE\",\n      \"subcategory\": \"UNTERKATEGORIE\",\n      \"suggestedPath\": \"Hauptordner/Unterordner\",\n      \"isDuplicate\": false,\n      \"duplicateOf\": null,\n      \"action\": \"move\"\n    }\n  ]\n}\n\nMögliche actions: 'move' (verschieben), 'delete_duplicate' (Duplikat löschen), 'keep' (behalten wo es ist)\nBeispiel Kategorien: Finanzen, Projekte, Fotos, Videos, Dokumente, Software, Musik, Privat, Arbeit, Archiv\nErstelle sinnvolle deutsche Ordnernamen basierend auf dem tatsächlichen Inhalt."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 4000
+        }
+      },
+      "id": "a1b2c3d4-0005-0005-0005-000000000005",
+      "name": "OpenAI: Dateien kategorisieren",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.4,
+      "position": [880, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI (Mein Account)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI-Antwort parsen und Kategorien extrahieren\nconst items = $input.all();\nconst allCategories = [];\n\nfor (const item of items) {\n  try {\n    const content = item.json.message?.content || item.json.choices?.[0]?.message?.content || '';\n    \n    // JSON aus der Antwort extrahieren\n    let parsed;\n    const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      parsed = JSON.parse(jsonMatch[0]);\n    } else {\n      parsed = JSON.parse(content);\n    }\n    \n    if (parsed.categories && Array.isArray(parsed.categories)) {\n      allCategories.push(...parsed.categories);\n    }\n  } catch (e) {\n    console.error('Fehler beim Parsen der AI-Antwort:', e.message);\n  }\n}\n\nconsole.log(`Kategorisiert: ${allCategories.length} Dateien`);\n\n// Einzigartige Pfade/Ordner sammeln\nconst foldersNeeded = new Set();\nfor (const cat of allCategories) {\n  if (cat.suggestedPath && cat.action !== 'delete_duplicate') {\n    const parts = cat.suggestedPath.split('/');\n    let currentPath = '';\n    for (const part of parts) {\n      if (part.trim()) {\n        currentPath = currentPath ? `${currentPath}/${part.trim()}` : part.trim();\n        foldersNeeded.add(currentPath);\n      }\n    }\n  }\n}\n\nreturn [\n  {\n    json: {\n      categories: allCategories,\n      foldersToCreate: Array.from(foldersNeeded).sort(),\n      filesToDelete: allCategories.filter(c => c.action === 'delete_duplicate'),\n      filesToMove: allCategories.filter(c => c.action === 'move')\n    }\n  }\n];"
+      },
+      "id": "a1b2c3d4-0006-0006-0006-000000000006",
+      "name": "Code: AI-Antworten zusammenführen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "complete",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Du bist ein Experte für Dateiorganisation. Erstelle eine optimale, logische Ordnerstruktur. Antworte NUR mit validem JSON."
+            },
+            {
+              "role": "user",
+              "content": "=Hier ist die Liste der Ordner die erstellt werden sollen und die Kategorisierung aller Dateien:\n\nVorzuschlagende Ordner: {{ JSON.stringify($json.foldersToCreate, null, 2) }}\n\nAnzahl Dateien: {{ $json.categories.length }}\nAnzahl Duplikate zum Löschen: {{ $json.filesToDelete.length }}\n\nOptimiere und konsolidiere die Ordnerstruktur. Stelle sicher dass:\n1. Max 3 Ebenen Tiefe\n2. Deutsche Ordnernamen\n3. Logische Gruppierung\n4. Keine redundanten Ordner\n\nAntworte mit exakt diesem JSON:\n{\n  \"optimizedStructure\": [\n    {\n      \"path\": \"Hauptordner/Unterordner\",\n      \"description\": \"Wozu dieser Ordner dient\",\n      \"parentPath\": \"Hauptordner\"\n    }\n  ],\n  \"renamedFolders\": [\n    {\n      \"oldName\": \"alter Ordnername\",\n      \"newName\": \"neuer Ordnername\",\n      \"reason\": \"Warum umbenannt\"\n    }\n  ],\n  \"summary\": \"Kurze Beschreibung der vorgeschlagenen Struktur\"\n}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 2000
+        }
+      },
+      "id": "a1b2c3d4-0007-0007-0007-000000000007",
+      "name": "OpenAI: Ordnerstruktur optimieren",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.4,
+      "position": [1320, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI (Mein Account)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Finale Ordnerstruktur parsen\nconst aiResponse = $input.first();\nconst content = aiResponse.json.message?.content || aiResponse.json.choices?.[0]?.message?.content || '';\n\nlet structure;\ntry {\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  structure = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content);\n} catch(e) {\n  console.error('Parse error:', e);\n  structure = { optimizedStructure: [], renamedFolders: [], summary: 'Parse error' };\n}\n\nconsole.log('Ordnerstruktur-Zusammenfassung:', structure.summary);\nconsole.log(`Erstelle ${structure.optimizedStructure?.length || 0} Ordner`);\n\n// Ordner nach Tiefe sortieren (erst Parent, dann Children)\nconst sortedFolders = (structure.optimizedStructure || []).sort((a, b) => {\n  const depthA = (a.path || '').split('/').length;\n  const depthB = (b.path || '').split('/').length;\n  return depthA - depthB;\n});\n\n// Ergebnis als einzelne Items zurückgeben\nreturn sortedFolders.map(folder => ({\n  json: {\n    path: folder.path,\n    name: folder.path.split('/').pop(),\n    parentPath: folder.parentPath || null,\n    description: folder.description,\n    depth: folder.path.split('/').length,\n    createdFolderId: null\n  }\n}));"
+      },
+      "id": "a1b2c3d4-0008-0008-0008-000000000008",
+      "name": "Code: Ordner-Liste aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "a1b2c3d4-0009-0009-0009-000000000009",
+      "name": "Loop: Ordner erstellen",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "MyDrive",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.parentFolderId || 'root' }}"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0010-0010-0010-000000000010",
+      "name": "Drive: Ordner erstellen",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1980, 200],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive (Mein Account)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Folder-ID nach Erstellung speichern\nconst folderData = $input.first().json;\n\n// Globale Map für erstellte Ordner (via $workflow.staticData)\nconst staticData = $workflow.staticData;\nif (!staticData.createdFolders) staticData.createdFolders = {};\n\nconst path = folderData.path || folderData.name;\nconst folderId = folderData.id;\n\nif (path && folderId) {\n  staticData.createdFolders[path] = folderId;\n  console.log(`Ordner gespeichert: ${path} -> ${folderId}`);\n}\n\nreturn [{ json: { path, folderId, allFolders: staticData.createdFolders } }];"
+      },
+      "id": "a1b2c3d4-0011-0011-0011-000000000011",
+      "name": "Code: Folder-ID merken",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Alle Kategorisierungen holen und Dateien zum Verschieben vorbereiten\n// Hinweis: $('Code: AI-Antworten zusammenführen') referenziert den früheren Node\nconst categoriesData = $('Code: AI-Antworten zusammenführen').first().json;\nconst createdFolders = $workflow.staticData.createdFolders || {};\n\nconst filesToMove = categoriesData.filesToMove || [];\nconst results = [];\n\nfor (const file of filesToMove) {\n  if (!file.fileId || !file.suggestedPath) continue;\n  \n  // Ordner-ID für den Zielpfad finden\n  const targetFolderId = createdFolders[file.suggestedPath];\n  \n  if (targetFolderId) {\n    results.push({\n      json: {\n        fileId: file.fileId,\n        fileName: file.fileName,\n        targetFolderId,\n        targetPath: file.suggestedPath,\n        category: file.category\n      }\n    });\n  } else {\n    console.warn(`Kein Ordner gefunden für Pfad: ${file.suggestedPath} (Datei: ${file.fileName})`);\n  }\n}\n\nconsole.log(`Verschiebe ${results.length} von ${filesToMove.length} Dateien`);\nreturn results.length > 0 ? results : [{ json: { message: 'Keine Dateien zum Verschieben', count: 0 } }];"
+      },
+      "id": "a1b2c3d4-0012-0012-0012-000000000012",
+      "name": "Code: Dateien zum Verschieben vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-has-file",
+              "leftValue": "={{ $json.fileId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0013-0013-0013-000000000013",
+      "name": "IF: Hat Datei-ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2420, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.fileId }}"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.targetFolderId }}"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0014-0014-0014-000000000014",
+      "name": "Drive: Datei verschieben",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2640, 200],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive (Mein Account)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Duplikate vorbereiten\nconst categoriesData = $('Code: AI-Antworten zusammenführen').first().json;\nconst filesToDelete = categoriesData.filesToDelete || [];\n\nconsole.log(`${filesToDelete.length} Duplikate gefunden`);\n\nif (filesToDelete.length === 0) {\n  return [{ json: { message: 'Keine Duplikate gefunden', count: 0 } }];\n}\n\nreturn filesToDelete.map(f => ({\n  json: {\n    fileId: f.fileId,\n    fileName: f.fileName,\n    duplicateOf: f.duplicateOf,\n    action: 'delete'\n  }\n}));"
+      },
+      "id": "a1b2c3d4-0015-0015-0015-000000000015",
+      "name": "Code: Duplikate vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 400]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "delete",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.fileId }}"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0016-0016-0016-000000000016",
+      "name": "Drive: Duplikat löschen",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2860, 400],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive (Mein Account)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zusammenfassung erstellen\nconst categoriesData = $('Code: AI-Antworten zusammenführen').first().json;\n\nconst summary = {\n  timestamp: new Date().toISOString(),\n  totalFiles: categoriesData.categories?.length || 0,\n  filesMovedSuccessfully: categoriesData.filesToMove?.length || 0,\n  duplicatesRemoved: categoriesData.filesToDelete?.length || 0,\n  foldersCreated: Object.keys($workflow.staticData.createdFolders || {}).length,\n  status: 'Erfolgreich abgeschlossen'\n};\n\nconsole.log('=== ZUSAMMENFASSUNG ===' );\nconsole.log(JSON.stringify(summary, null, 2));\n\nreturn [{ json: summary }];"
+      },
+      "id": "a1b2c3d4-0017-0017-0017-000000000017",
+      "name": "Code: Abschluss-Zusammenfassung",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3080, 300]
+    }
+  ],
+  "connections": {
+    "Start (Manuell)": {
+      "main": [
+        [
+          {
+            "node": "Drive: Alle Dateien listen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: Alle Dateien listen": {
+      "main": [
+        [
+          {
+            "node": "Code: Dateien aufbereiten & Duplikate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Dateien aufbereiten & Duplikate": {
+      "main": [
+        [
+          {
+            "node": "Code: In Batches aufteilen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: In Batches aufteilen": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Dateien kategorisieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Dateien kategorisieren": {
+      "main": [
+        [
+          {
+            "node": "Code: AI-Antworten zusammenführen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: AI-Antworten zusammenführen": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Ordnerstruktur optimieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Ordnerstruktur optimieren": {
+      "main": [
+        [
+          {
+            "node": "Code: Ordner-Liste aufbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Ordner-Liste aufbereiten": {
+      "main": [
+        [
+          {
+            "node": "Loop: Ordner erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop: Ordner erstellen": {
+      "main": [
+        [
+          {
+            "node": "Drive: Ordner erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code: Dateien zum Verschieben vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: Ordner erstellen": {
+      "main": [
+        [
+          {
+            "node": "Code: Folder-ID merken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Folder-ID merken": {
+      "main": [
+        [
+          {
+            "node": "Loop: Ordner erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Dateien zum Verschieben vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "IF: Hat Datei-ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Hat Datei-ID?": {
+      "main": [
+        [
+          {
+            "node": "Drive: Datei verschieben",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code: Duplikate vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: Datei verschieben": {
+      "main": [
+        [
+          {
+            "node": "Code: Abschluss-Zusammenfassung",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Duplikate vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Drive: Duplikat löschen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: Duplikat löschen": {
+      "main": [
+        [
+          {
+            "node": "Code: Abschluss-Zusammenfassung",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 0,
+  "tags": []
+}
